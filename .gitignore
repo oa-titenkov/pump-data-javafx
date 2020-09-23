@@ -1,0 +1,5 @@
+/target/
+*.iml
+/src/main/java/me/titenkov/resources/fxml/calculator.fxml
+/src/main/java/me/titenkov/controllers/CalculatorController.java
+/.idea/

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.effect.*?>
+<?import javafx.scene.control.*?>
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="484.0" prefWidth="396.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.titenkov.controllers.PumpMainMenuController">
+    <top>
+        <TitledPane collapsible="false" prefHeight="442.0" prefWidth="396.0" text="pump-rebuild" BorderPane.alignment="CENTER">
+            <content>
+                <AnchorPane prefHeight="182.0" prefWidth="394.0">
+               <children>
+                  <Label layoutX="31.0" layoutY="56.0" text="Номер стана" />
+                  <Label layoutX="31.0" layoutY="73.0" text="Бригада" />
+                  <Label layoutX="31.0" layoutY="90.0" text="Смена" />
+                  <Label layoutX="31.0" layoutY="107.0" text="Табельный" />
+                  <Label layoutX="31.0" layoutY="124.0" text="Код материала" />
+                  <Label layoutX="31.0" layoutY="141.0" text="№ катушки за смену" />
+                  <Label layoutX="31.0" layoutY="158.0" text="Плавка" />
+                  <Label fx:id="stanNumber" layoutX="169.0" layoutY="56.0" text="Label" />
+                  <Label fx:id="brigade" layoutX="169.0" layoutY="73.0" text="Label" />
+                  <Label fx:id="shift" layoutX="169.0" layoutY="90.0" text="Label" />
+                  <Label layoutX="31.0" layoutY="175.0" text="№ фланца предка" />
+                  <Label layoutX="31.0" layoutY="194.0" text="№ фланца потомок" />
+                  <Label layoutX="31.0" layoutY="211.0" text="Диаметр" />
+                  <Label layoutX="31.0" layoutY="228.0" text="Длина" />
+                  <Label layoutX="31.0" layoutY="245.0" text="Вес" />
+                  <Label layoutX="31.0" layoutY="262.0" text="Технический номер" />
+                  <Label layoutX="31.0" layoutY="276.0" text="Качество" />
+                  <Label layoutX="32.0" layoutY="293.0" text="Код заказа" />
+                  <Label layoutX="32.0" layoutY="308.0" text="Дата" />
+                  <Label layoutX="31.0" layoutY="325.0" text="Время" />
+                  <Label fx:id="personalNumber" layoutX="169.0" layoutY="107.0" text="Label" />
+                  <Label fx:id="materialCode" layoutX="169.0" layoutY="124.0" text="Label" />
+                  <Label fx:id="ordinalShift" layoutX="169.0" layoutY="141.0" text="Label" />
+                  <Label fx:id="fusionNumber" layoutX="169.0" layoutY="158.0" text="Label" />
+                  <Label fx:id="parentFlangeNumber" layoutX="169.0" layoutY="175.0" text="Label" />
+                  <Label fx:id="childFlangeNumber" layoutX="169.0" layoutY="194.0" text="Label" />
+                  <Label fx:id="diameter" layoutX="169.0" layoutY="211.0" text="Label" />
+                  <Label fx:id="length" layoutX="169.0" layoutY="228.0" text="Label" />
+                  <Label fx:id="weight" layoutX="169.0" layoutY="245.0" text="Label" />
+                  <Label fx:id="ordinalDraw" layoutX="169.0" layoutY="262.0" text="Label" />
+                  <Label fx:id="quality" layoutX="169.0" layoutY="276.0" text="Label" />
+                  <Label fx:id="orderCode" layoutX="169.0" layoutY="293.0" text="Label" />
+                  <Label fx:id="date" layoutX="169.0" layoutY="308.0" text="Label" />
+                  <Label fx:id="time" layoutX="169.0" layoutY="325.0" text="Label" />
+                  <Label layoutX="31.0" layoutY="30.0" text="Номер катушки" />
+                  <ComboBox fx:id="spoolSelect" layoutX="158.0" layoutY="26.0" minWidth="-Infinity" onAction="#spoolChange" prefHeight="25.0" prefWidth="50.0" promptText="#" />
+                  <Label layoutX="19.0" layoutY="384.0" text="Последнее соединение с базой:" />
+                  <Label fx:id="lastUpdatedLabel" layoutX="219.0" layoutY="384.0" text="Label" />
+               </children>
+                </AnchorPane>
+            </content>
+        </TitledPane>
+    </top>
+</BorderPane>

@@ -164,4 +164,14 @@ public class Spool {
     public void setTime(String time) {
         this.time = time;
     }
+
+    @Override
+    public String toString() {
+        return "Stan='" + stanNumber + '\'' +
+                ", Code='" + materialCode + '\'' +
+                ", Date='" + date + '\'' +
+                ", Time='" + time + '\'' +
+                ", Number='" + spoolNumber + '\'' +
+                '}';
+    }
 }

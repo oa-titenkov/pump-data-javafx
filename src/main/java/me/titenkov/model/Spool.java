@@ -25,6 +25,14 @@ public class Spool {
         return spoolNumber;
     }
 
+    public Integer getIntegerSpoolNumber() {
+        return Integer.valueOf(spoolNumber);
+    }
+
+    public Integer getIntegerStanNumber() {
+        return Integer.valueOf(stanNumber);
+    }
+
     public void setSpoolNumber(String spoolNumber) {
         this.spoolNumber = spoolNumber;
     }
@@ -167,11 +175,10 @@ public class Spool {
 
     @Override
     public String toString() {
-        return "Stan='" + stanNumber + '\'' +
-                ", Code='" + materialCode + '\'' +
-                ", Date='" + date + '\'' +
-                ", Time='" + time + '\'' +
-                ", Number='" + spoolNumber + '\'' +
-                '}';
+        return "Стан: " + stanNumber  +
+                ", Код: " + materialCode  +
+                ", Дата: " + date  +
+                ", Время: " + time  +
+                ", Номер: " + spoolNumber;
     }
 }

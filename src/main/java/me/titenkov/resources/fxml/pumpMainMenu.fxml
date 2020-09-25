@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.text.*?>
 <?import javafx.scene.effect.*?>
 <?import javafx.scene.control.*?>
 <?import java.lang.*?>
@@ -9,13 +10,13 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="484.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.titenkov.controllers.PumpMainMenuController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="584.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.titenkov.controllers.PumpMainWindowController">
     <top>
-        <TitledPane collapsible="false" prefHeight="442.0" prefWidth="396.0" text="pump-rebuild" BorderPane.alignment="CENTER">
+        <TitledPane collapsible="false" prefHeight="531.0" prefWidth="800.0" text="pump-rebuild" BorderPane.alignment="CENTER">
             <content>
-                <AnchorPane minWidth="-Infinity" prefHeight="182.0" prefWidth="700.0">
+                <AnchorPane maxHeight="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="345.0" prefWidth="798.0">
                <children>
-                  <Label layoutX="32.0" layoutY="14.0" text="Номер стана" />
+                  <Label fx:id="stanNumberTextField" layoutX="32.0" layoutY="14.0" text="Номер стана" />
                   <Label layoutX="33.0" layoutY="108.0" text="Бригада" />
                   <Label layoutX="33.0" layoutY="125.0" text="Смена" />
                   <Label layoutX="33.0" layoutY="142.0" text="Табельный" />
@@ -37,7 +38,7 @@
                   <Label layoutX="33.0" layoutY="360.0" text="Время" />
                   <Label fx:id="personalNumber" layoutX="171.0" layoutY="142.0" text="Label" />
                   <Label fx:id="materialCode" layoutX="171.0" layoutY="159.0" text="Label" />
-                  <Label fx:id="ordinalShift" layoutX="171.0" layoutY="176.0" text="Label" />
+                  <Label fx:id="ordinalShift" layoutX="171.0" layoutY="175.0" text="Label" />
                   <Label fx:id="fusionNumber" layoutX="171.0" layoutY="193.0" text="Label" />
                   <Label fx:id="parentFlangeNumber" layoutX="171.0" layoutY="210.0" text="Label" />
                   <Label fx:id="childFlangeNumber" layoutX="171.0" layoutY="229.0" text="Label" />
@@ -49,18 +50,36 @@
                   <Label fx:id="orderCode" layoutX="171.0" layoutY="328.0" text="Label" />
                   <Label fx:id="date" layoutX="171.0" layoutY="343.0" text="Label" />
                   <Label fx:id="time" layoutX="171.0" layoutY="360.0" text="Label" />
-                  <Label layoutX="30.0" layoutY="48.0" text="Номер катушки" />
+                  <Label fx:id="spoolNumberTextField" layoutX="30.0" layoutY="48.0" text="Номер катушки" />
                   <ComboBox fx:id="spoolSelect" layoutX="146.0" layoutY="44.0" minWidth="-Infinity" onAction="#spoolChange" prefHeight="25.0" prefWidth="67.0" promptText="#" />
-                  <Label layoutX="19.0" layoutY="384.0" text="Последнее соединение с базой:" />
-                  <Label fx:id="lastUpdatedLabel" layoutX="219.0" layoutY="384.0" text="Label" />
+                  <Label fx:id="lastDBConnectionTextField" layoutX="15.0" layoutY="474.0" text="Последнее соединение с базой:" />
+                  <Label fx:id="lastUpdatedLabel" layoutX="219.0" layoutY="474.0" text="Label" />
                   <ComboBox fx:id="stanSelect" layoutX="145.0" layoutY="10.0" minHeight="-Infinity" onAction="#stanChange" prefHeight="25.0" prefWidth="68.0" promptText="#" />
                   <Label fx:id="spoolNumber" layoutX="205.0" layoutY="91.0" text="Label" />
                   <Label layoutX="33.0" layoutY="91.0" text="Стан" />
-                  <ListView fx:id="newSpoolList" layoutX="277.0" layoutY="39.0" prefHeight="344.0" prefWidth="389.0" />
-                  <Label layoutX="277.0" layoutY="23.0" prefHeight="17.0" prefWidth="118.0" text="Новые катушки" />
+                  <ListView fx:id="newSpoolList" layoutX="277.0" layoutY="39.0" onMouseClicked="#newSpoolListClick" prefHeight="399.0" prefWidth="484.0" />
+                  <Label fx:id="spoolListTextField" layoutX="277.0" layoutY="23.0" prefHeight="17.0" prefWidth="388.0" text="Новые катушки" />
+                  <ListView fx:id="historySpoolsList" layoutX="276.0" layoutY="61.0" onMouseClicked="#historyListClick" prefHeight="378.0" prefWidth="484.0" />
+                  <Label fx:id="spoolsShiftCountTextField" layoutX="276.0" layoutY="439.0" text="Общее число катушек" />
+                  <Label fx:id="spoolShiftCount" layoutX="405.0" layoutY="439.0" text="Label" />
+                  <Label fx:id="historyLabel" layoutX="29.0" layoutY="36.0" prefHeight="17.0" prefWidth="81.0" />
                </children>
                 </AnchorPane>
             </content>
         </TitledPane>
     </top>
+   <bottom>
+      <AnchorPane prefHeight="50.0" prefWidth="800.0">
+         <children>
+            <DatePicker fx:id="datePicker" layoutX="7.0" layoutY="9.0" onAction="#datePickerAction" prefHeight="25.0" prefWidth="115.0" />
+            <Label layoutX="134.0" layoutY="13.0" text="Смена" />
+            <ComboBox fx:id="shiftPicker" layoutX="177.0" layoutY="9.0" prefHeight="25.0" prefWidth="39.0" />
+            <Button fx:id="historyButton" layoutX="248.0" layoutY="9.0" mnemonicParsing="false" onAction="#historyStart" text="Найти" />
+            <Button fx:id="backToCurrentShift" layoutX="318.0" layoutY="9.0" mnemonicParsing="false" onAction="#backToCurrentShiftButtonClick" text="Вернуться к текущей смене" />
+         </children>
+      </AnchorPane>
+   </bottom>
+   <center>
+      <BorderPane prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+   </center>
 </BorderPane>

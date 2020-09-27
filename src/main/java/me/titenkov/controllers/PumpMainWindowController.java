@@ -1,8 +1,6 @@
 package me.titenkov.controllers;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
+import com.mongodb.*;
 import com.mongodb.client.*;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -10,10 +8,8 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.ScheduledService;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
-import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 import me.titenkov.model.Spool;
 import me.titenkov.service.PumpMainWindowService;
@@ -21,15 +17,9 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 
 import java.net.URL;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Objects;
-import java.util.ResourceBundle;
+import java.util.*;
 
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
@@ -65,8 +55,8 @@ public class PumpMainWindowController implements Initializable {
     final static double GUI_UPDATE_RATE = 10;
     static long currentDocumentCount = 0;
 
-    public ObservableList<String> spoolComboBoxList = FXCollections.observableArrayList("1");
-    public ObservableList<String> stanComboBoxList = FXCollections.observableArrayList("338");
+    public ObservableList<String> spoolComboBoxList = FXCollections.observableArrayList();
+    public ObservableList<String> stanComboBoxList = FXCollections.observableArrayList();
     public ObservableList<String> shiftPickerList = FXCollections.observableArrayList("1", "2");
 
     static ScheduledService<String> scanningBackground;
@@ -82,37 +72,51 @@ public class PumpMainWindowController implements Initializable {
     public Label spoolShiftCount;
     public Label historyLabel;
     public Label spoolsShiftCountTextField;
+    public Label stanSpoolShiftCount;
+    public Label stanSpoolsShiftCountTextField;
 
+    public MongoCollection<Spool> dataCollection;
 
     CodecRegistry pojoCodecRegistry = fromProviders(PojoCodecProvider.builder().automatic(true).build());
     CodecRegistry codecRegistry = fromRegistries(MongoClientSettings.getDefaultCodecRegistry(), pojoCodecRegistry);
     MongoClientSettings clientSettings = MongoClientSettings.builder()
-            .applyConnectionString(new ConnectionString("mongodb://172.16.13.14/pump-rebuild"))
+            .applyConnectionString(new ConnectionString("mongodb://localhost/pump-rebuild"))
             .codecRegistry(codecRegistry)
             .build();
-    MongoClient mongoClient = MongoClients.create(clientSettings);
 
     public PumpMainWindowService pumpService = new PumpMainWindowService();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        dataCollection = MongoClients
+                .create(clientSettings)
+                .getDatabase("pump-rebuild").getCollection("data")
+                .withDocumentClass(Spool.class);
+        currentDocumentCount = dataCollection.countDocuments();
+        scanningBackground = scanningForNewSpoolsService();
+        scanningBackground.setPeriod(Duration.seconds(GUI_UPDATE_RATE));
+        scanningBackground.start();
         spoolSelect.setItems(spoolComboBoxList);
         stanSelect.setItems(stanComboBoxList);
         shiftPicker.setItems(shiftPickerList);
         backToCurrentShift.setVisible(false);
         historySpoolsList.setVisible(false);
         spoolsShiftCountTextField.setVisible(false);
-        setStanCombobox();
-        setSpoolFieldBlank();
-        historySpoolsList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> setSpoolFields(newValue));
-        newSpoolList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> setSpoolFields(newValue));
+        spoolShiftCount.setVisible(false);
+        stanSpoolShiftCount.setVisible(false);
+        stanSpoolsShiftCountTextField.setVisible(false);
+        stanSpoolShiftCount.setText("");
+        setStanComboBox();
+        setSpoolFields(null);
+        historySpoolsList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldValue, newValue) -> setSpoolFields(newValue));
+        newSpoolList
+                .getSelectionModel()
+                .selectedItemProperty().addListener((observable, oldValue, newValue) -> setSpoolFields(newValue));
     }
 
     public PumpMainWindowController() {
-        currentDocumentCount = pumpService.getCurrentDocumentCount(mongoClient);
-        scanningBackground = scanningForNewSpoolsService();
-        scanningBackground.setPeriod(Duration.seconds(GUI_UPDATE_RATE));
-        scanningBackground.start();
     }
 
     public void stanChange() {
@@ -121,17 +125,11 @@ public class PumpMainWindowController implements Initializable {
         }
         else {
             if(usualBackground != null) usualBackground.cancel();
-            if(!stanSelect.getPromptText().equals("#")){
-                usualBackground = createBackgroundTaskOfChosenSpool(spoolSelect.getPromptText(), stanSelect.getValue());
-            }
-            else {
-                usualBackground = createBackgroundTaskOfChosenSpool(spoolSelect.getValue(), stanSelect.getValue());
-            }
-            usualBackground.setOnSucceeded(event -> {
-                System.out.println("Inside stan succeeded:");
-            });
-            usualBackground.start();
+            spoolSelect.setValue("#");
+            setSpoolFields(null);
         }
+        spoolComboBoxList.clear();
+        setSpoolComboBox(stanSelect.getValue());
     }
 
     public void spoolChange() {
@@ -140,16 +138,7 @@ public class PumpMainWindowController implements Initializable {
         }
         else {
             if(usualBackground != null) usualBackground.cancel();
-            String s = stanSelect.getPromptText();
-            if(!spoolSelect.getPromptText().equals("#")) {
-                usualBackground = createBackgroundTaskOfChosenSpool(spoolSelect.getValue(), stanSelect.getPromptText());
-            }
-            else {
-                usualBackground = createBackgroundTaskOfChosenSpool(spoolSelect.getValue(), stanSelect.getValue());
-            }
-            usualBackground.setOnSucceeded(event -> {
-                System.out.println("Inside spool succeeded:");
-            });
+            usualBackground = createBackgroundTaskOfChosenSpool(spoolSelect.getValue(), stanSelect.getValue());
             usualBackground.start();
         }
 
@@ -161,21 +150,21 @@ public class PumpMainWindowController implements Initializable {
             protected Task<String> createTask() {
                 return new Task<String>() {
                     @Override
-                    protected String call() throws Exception {
+                    protected String call() {
                         Platform.runLater(() -> {
-                            int currentCount = (int) mongoClient
-                                    .getDatabase("pump-rebuild")
-                                    .getCollection("data")
-                                    .countDocuments();
+                            int currentCount = (int) dataCollection.countDocuments();
                             if(currentCount > currentDocumentCount) {
                                 int newSpoolsCount = currentCount - (int) currentDocumentCount;
-                                MongoDatabase database = mongoClient.getDatabase("pump-rebuild");
-                                MongoCollection<Spool> table = database.getCollection("data", Spool.class);
-                                MongoCursor<Spool> spoolCursor = table.find().skip(currentCount - newSpoolsCount).cursor();
-                                while(spoolCursor.hasNext()) {
-                                    newSpoolList.getItems().add(0, spoolCursor.next());
+                                List<Spool> newSpools = pumpService
+                                        .getLastSpoolDocuments(
+                                                dataCollection,
+                                                currentCount - newSpoolsCount
+                                        );
+                                for (Spool spool: newSpools) {
+                                    newSpoolList.getItems().add(0, spool);
                                 }
                                 currentDocumentCount = currentCount;
+                                setStanComboBox();
                             }
                         });
                         return null;
@@ -192,45 +181,40 @@ public class PumpMainWindowController implements Initializable {
             protected Task<String> createTask() {
                 return new Task<String>() {
                     @Override
-                    protected String call() throws Exception {
+                    protected String call() {
                         Platform.runLater(() -> {
-                            MongoDatabase database = mongoClient.getDatabase("pump-rebuild");
-                            MongoCollection<Spool> table = database.getCollection("data", Spool.class);
                             BasicDBObject criteria = new BasicDBObject();
-                            Instant instantTomorrowDate = null;
-                            try{
-                                instantTomorrowDate = new SimpleDateFormat("dd-MM-yyyy").parse(date).toInstant();
-                            }catch (ParseException e){
-                                System.out.println(e.toString());
-                            }
-
-                            Instant tomorrowDay = Objects.requireNonNull(instantTomorrowDate).plus(2, ChronoUnit.DAYS);
-                            System.out.println("tomorrow:" + tomorrowDay);
-                            LocalDateTime datetime = LocalDateTime.ofInstant(tomorrowDay, ZoneOffset.UTC);
-                            String formattedDate = DateTimeFormatter.ofPattern("dd-MM-yyyy").format(datetime);
                             criteria.append("date", date);
+                            String tomorrowDate = pumpService.getFormattedTomorrowDate(date);
                             if(shift.equals("2")) {
-                                System.out.println(formattedDate);
-                                criteria.append("date", formattedDate);
+                                System.out.println(tomorrowDate);
+                                criteria.append("date", tomorrowDate);
                             }
-                            MongoCursor<Spool> spools = table.find(criteria).cursor();
+                            MongoCursor<Spool> spools = dataCollection.find(criteria).cursor();
                             while(spools.hasNext()) {
                                 Spool spool = spools.next();
                                 System.out.println(spool.toString());
                                 if(shift.equals("2")){
-                                    if(spool.getDate().equals(date) && Integer.parseInt(spool.getTime().split(":")[0]) >= 20 && Integer.parseInt(spool.getTime().split(":")[0]) < 24) {
+                                    if(spool.getDate().equals(date)
+                                            && Integer.parseInt(spool.getTime().split(":")[0]) >= 19
+                                            && Integer.parseInt(spool.getTime().split(":")[0]) < 24
+                                    ) {
                                         historySpoolsList.getItems().add(spool);
                                     }
-                                    else if(spool.getDate().equals(formattedDate) && Integer.parseInt(spool.getTime().split(":")[0]) >= 0 && Integer.parseInt(spool.getTime().split(":")[0]) < 8) {
+                                    else if(spool.getDate().equals(tomorrowDate)
+                                            && Integer.parseInt(spool.getTime().split(":")[0]) >= 0
+                                            && Integer.parseInt(spool.getTime().split(":")[0]) < 7
+                                    ) {
                                         historySpoolsList.getItems().add(spool);
                                     }
                                 }
                                 else {
-                                    if(Integer.parseInt(spool.getTime().split(":")[0]) >= 8 && Integer.parseInt(spool.getTime().split(":")[0]) < 20) {
+                                    if(Integer.parseInt(spool.getTime().split(":")[0]) >= 7
+                                            && Integer.parseInt(spool.getTime().split(":")[0]) < 19
+                                    ) {
                                         historySpoolsList.getItems().add(spool);
                                     }
                                 }
-
                             }
                             historySpoolsList.getItems().sort(Comparator
                                     .comparing(Spool::getIntegerStanNumber)
@@ -251,37 +235,20 @@ public class PumpMainWindowController implements Initializable {
             protected Task<String> createTask() {
                 return new Task<String>() {
                     @Override
-                    protected String call() throws Exception {
+                    protected String call() {
                         Platform.runLater(() -> {
-                            MongoDatabase database = mongoClient.getDatabase("pump-rebuild");
-                            MongoCollection<Spool> table = database.getCollection("data", Spool.class);
                             BasicDBObject criteria = new BasicDBObject();
-                            BasicDBObject criteriaWithoutSpool = new BasicDBObject();
                             LocalDateTime datetime = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
                             String formattedDate = DateTimeFormatter.ofPattern("dd-MM-yyyy").format(datetime);
                             criteria.append("spoolNumber", spoolValue)
                                     .append("stanNumber", stanValue)
                                     .append("date", formattedDate);
-                            criteriaWithoutSpool.append("stanNumber", stanValue).append("date", formattedDate);
-                            Spool spool = table.find(criteria).first();
+                            System.out.println(stanValue + " spool change " + spoolValue + "\n");
+                            Spool spool = dataCollection.find(criteria).first();
                             if(spool != null) {
-                                stanComboBoxList.clear();
-                                stanSelect.setItems(stanComboBoxList);
-                                for (String s : table.distinct("stanNumber", String.class)) {
-                                    stanComboBoxList.add(s);
-                                }
-                                spoolSelect.setItems(spoolComboBoxList);
-                                stanSelect.setItems(stanComboBoxList);
-                                System.out.println(stanValue + " " + spoolValue);
                                 stanNumber.setText(stanValue);
                                 spoolNumber.setText(spoolValue);
                                 stanSelect.setPromptText(stanValue);
-                                spoolSelect.setPromptText(spoolValue);
-                                spoolComboBoxList.clear();
-                                MongoCursor<Spool> spools = table.find(criteriaWithoutSpool).cursor();
-                                while (spools.hasNext()) {
-                                    spoolComboBoxList.add(spools.next().getSpoolNumber());
-                                }
                                 setSpoolFields(spool);
                             }
                         });
@@ -293,19 +260,19 @@ public class PumpMainWindowController implements Initializable {
 
     }
 
-
-    public void datePickerAction(ActionEvent actionEvent) {
+    public void datePickerAction() {
         final String pattern = "dd-MM-yyyy";
         final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(pattern);
         System.out.println(datePicker.getValue().format(dateFormatter));
     }
 
-    public void initializeHistoryWindow(boolean isVisible) {
-        if(isVisible) {
+    public void initializeHistoryWindow(boolean setVisible) {
+        if(setVisible) {
             if(historyBackground != null) historyBackground.cancel();
-            setSpoolFieldBlank();
+            setSpoolFields(null);
             historySpoolsList.getItems().clear();
             spoolShiftCount.setText("0");
+            spoolShiftCount.setVisible(true);
             backToCurrentShift.setVisible(true);
             historySpoolsList.setVisible(true);
             spoolsShiftCountTextField.setVisible(true);
@@ -317,7 +284,8 @@ public class PumpMainWindowController implements Initializable {
             lastUpdatedLabel.setVisible(false);
             lastDBConnectionTextField.setVisible(false);
             spoolListTextField.setText("Катушки за выбранную смену:");
-            historyLabel.setText("HISTORY");
+            stanSpoolShiftCount.setVisible(true);
+            stanSpoolsShiftCountTextField.setVisible(true);
             final String pattern = "dd-MM-yyyy";
             final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(pattern);
             System.out.println(datePicker.getValue().format(dateFormatter) + " " + shiftPicker.getValue());
@@ -336,93 +304,87 @@ public class PumpMainWindowController implements Initializable {
             lastUpdatedLabel.setVisible(true);
             lastDBConnectionTextField.setVisible(true);
             spoolListTextField.setText("Новые катушки:");
+            spoolShiftCount.setVisible(false);
             historyLabel.setText("");
-            setSpoolFieldBlank();
+            stanSpoolShiftCount.setVisible(false);
+            stanSpoolsShiftCountTextField.setVisible(false);
+            setSpoolFields(null);
             historyBackground.cancel();
         }
     }
 
-    public void historyStart(ActionEvent actionEvent) {
+    public void historyStart() {
         if(datePicker.getValue() != null && shiftPicker.getValue() != null) {
             initializeHistoryWindow(true);
         }
     }
 
-    public void backToCurrentShiftButtonClick(ActionEvent actionEvent) {
+    public void backToCurrentShiftButtonClick() {
         initializeHistoryWindow(false);
     }
 
-    public void historyListClick(MouseEvent mouseEvent) {
+    public void historyListClick() {
         setSpoolFields(historySpoolsList.getSelectionModel().getSelectedItem());
     }
 
-    public void newSpoolListClick(MouseEvent mouseEvent) {
+    public void newSpoolListClick() {
         setSpoolFields(newSpoolList.getSelectionModel().getSelectedItem());
     }
 
     public void setSpoolFields(Spool spool) {
-        if(spool != null) {
-            spoolNumber.setText(spool.getSpoolNumber());
-            stanNumber.setText(spool.getStanNumber());
-            brigade.setText(spool.getBrigade());
-            shift.setText(spool.getShift());
-            personalNumber.setText(spool.getPersonalNumber());
-            materialCode.setText(spool.getMaterialCode());
-            ordinalShift.setText(spool.getOrdinalShift());
-            fusionNumber.setText(spool.getFusionNumber());
-            parentFlangeNumber.setText(spool.getParentFlangeNumber());
-            childFlangeNumber.setText(spool.getChildFlangeNumber());
-            diameter.setText(spool.getDiameter());
-            length.setText(spool.getLength());
-            weight.setText(spool.getWeight());
-            ordinalDraw.setText(spool.getOrdinalDraw());
-            quality.setText(spool.getQuality());
-            orderCode.setText(spool.getOrderCode());
-            date.setText(spool.getDate());
-            time.setText(spool.getTime());
+            spoolNumber.setText(spool != null ? spool.getSpoolNumber() : "");
+            stanNumber.setText(spool != null ? spool.getStanNumber() : "");
+            brigade.setText(spool != null ? spool.getBrigade() : "");
+            shift.setText(spool != null ? spool.getShift() : "");
+            personalNumber.setText(spool != null ? spool.getPersonalNumber() : "");
+            materialCode.setText(spool != null ? spool.getMaterialCode() : "");
+            ordinalShift.setText(spool != null ? spool.getOrdinalShift() : "");
+            fusionNumber.setText(spool != null ? spool.getFusionNumber() : "");
+            parentFlangeNumber.setText(spool != null ? spool.getParentFlangeNumber() : "");
+            childFlangeNumber.setText(spool != null ? spool.getChildFlangeNumber() : "");
+            diameter.setText(spool != null ? spool.getDiameter() : "");
+            length.setText(spool != null ? spool.getLength() : "");
+            weight.setText(spool != null ? spool.getWeight() : "");
+            ordinalDraw.setText(spool != null ? spool.getOrdinalDraw() : "");
+            quality.setText(spool != null ? spool.getQuality() : "");
+            orderCode.setText(spool != null ? spool.getOrderCode() : "");
+            date.setText(spool != null ? spool.getDate() : "");
+            time.setText(spool != null ? spool.getTime() : "");
             DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
             lastUpdatedLabel.setText(dateFormatter.format(LocalDateTime.now()));
-        }
+            stanSpoolShiftCount.setText(
+                    pumpService.getSpoolsStanCountForShift(
+                            spool != null ? spool.getStanNumber() : null, historySpoolsList.getItems()));
     }
 
-    public void setSpoolFieldBlank() {
-        spoolNumber.setText("");
-        stanNumber.setText("");
-        brigade.setText("");
-        shift.setText("");
-        personalNumber.setText("");
-        materialCode.setText("");
-        ordinalShift.setText("");
-        fusionNumber.setText("");
-        parentFlangeNumber.setText("");
-        childFlangeNumber.setText("");
-        diameter.setText("");
-        length.setText("");
-        weight.setText("");
-        ordinalDraw.setText("");
-        quality.setText("");
-        orderCode.setText("");
-        date.setText("");
-        time.setText("");
-        lastUpdatedLabel.setText("");
-        spoolShiftCount.setText("");
-    }
-
-    public void setStanCombobox() {
-        MongoDatabase database = mongoClient.getDatabase("pump-rebuild");
-        MongoCollection<Spool> table = database.getCollection("data", Spool.class);
+    public void setStanComboBox() {
         BasicDBObject criteria = new BasicDBObject();
         LocalDateTime datetime = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         String formattedDate = DateTimeFormatter.ofPattern("dd-MM-yyyy").format(datetime);
         criteria.append("date", formattedDate);
-        Spool spool = table.find(criteria).first();
+        Spool spool = dataCollection.find(criteria).first();
         if(spool != null) {
+            Set<String> stanNumberSet = new HashSet<>();
             stanComboBoxList.clear();
-            stanSelect.setItems(stanComboBoxList);
-            for (String s : table.distinct("stanNumber", String.class)) {
-                stanComboBoxList.add(s);
+            MongoCursor<Spool> mongoCursor = dataCollection.find(criteria).cursor();
+            while(mongoCursor.hasNext()) {
+                stanNumberSet.add(mongoCursor.next().getStanNumber());
             }
+            stanComboBoxList.addAll(stanNumberSet);
+            stanSelect.setItems(stanComboBoxList);
         }
+    }
+
+    public void setSpoolComboBox(String stanNumber) {
+        BasicDBObject criteriaWithoutSpool = new BasicDBObject();
+        LocalDateTime datetime = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
+        String formattedDate = DateTimeFormatter.ofPattern("dd-MM-yyyy").format(datetime);
+        criteriaWithoutSpool.append("stanNumber", stanNumber).append("date", formattedDate);
+        MongoCursor<Spool> spools = dataCollection.find(criteriaWithoutSpool).cursor();
+        while (spools.hasNext()) {
+            spoolComboBoxList.add(spools.next().getSpoolNumber());
+        }
+        spoolSelect.setItems(spoolComboBoxList);
     }
 
 }
